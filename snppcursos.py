@@ -35,6 +35,5 @@ try:
     )
     element.click()
 
-    
 finally:
     driver.quit()
