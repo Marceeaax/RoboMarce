@@ -35,5 +35,10 @@ try:
     )
     element.click()
 
+    try:
+        element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, "col-md-12")))
+        print(element.get_property("innerText")) 
+    except:
+        print("Si hay cursos disponibles")
 finally:
     driver.quit()
