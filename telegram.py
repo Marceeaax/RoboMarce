@@ -1,65 +1,64 @@
-from telethon import TelegramClient
+from telethon import TelegramClient, events, sync
+from telethon.tl.types import InputMessagesFilterPhotos
+import sqlite3
+from PIL import Image
+from pytesseract import image_to_string
+import logging
+import os
+
+# Define the folder where you want to store the images
+image_folder = 'downloaded_images'
+
+# Make sure the folder exists
+os.makedirs(image_folder, exist_ok=True)
+
+logging.basicConfig(level=logging.DEBUG)
+
+# Database setup
+connection = sqlite3.connect('job_offers.db')
+cursor = connection.cursor()
+
+# Create table if not exists
+cursor.execute('''CREATE TABLE IF NOT EXISTS job_offers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    text TEXT UNIQUE
+                )''')
+connection.commit()
 
 api_id = 22044463
 api_hash = "fb0a519d38eb534d36dc5a5cc38e1dee"
 
 client = TelegramClient('anon', api_id, api_hash)
 
-async def main():
-    # Getting information about yourself
-    me = await client.get_me()
+# Function to store OCR result to database
+def store_to_db(text):
+    try:
+        cursor.execute("INSERT INTO job_offers (text) VALUES (?)", (text,))
+        connection.commit()
+    except sqlite3.IntegrityError:
+        # This error will happen if the text is already in the database, so just ignore it
+        pass
 
-    # "me" is a user object. You can pretty-print
-    # any Telegram object with the "stringify" method:
-    print(me.stringify())
+async def ocr_and_store_photo(message):
+    # Download the image
+    path = await message.download_media(file=os.path.join(image_folder, message.photo.id + '.jpg'))
 
-    # When you print something, you see a representation of it.
-    # You can access all attributes of Telegram objects with
-    # the dot operator. For example, to get the username:
-    username = me.username
-    print(username)
-    print(me.phone)
+    # OCR the image
+    text = image_to_string(Image.open(path))
 
-    # You can print all the dialogs/conversations that you are part of:
-    async for dialog in client.iter_dialogs():
-        print(dialog.name, 'has ID', dialog.id)
+    # Store the result in the database if not already present
+    store_to_db(text)
 
-    # You can send messages to yourself...
-    await client.send_message('me', 'Hello, myself!')
-    # ...to some chat ID
-    await client.send_message(-100123456, 'Hello, group!')
-    # ...to your contacts
-    await client.send_message('+34600123123', 'Hello, friend!')
-    # ...or even to any username
-    await client.send_message('username', 'Testing Telethon!')
-
-    # You can, of course, use markdown in your messages:
-    message = await client.send_message(
-        'me',
-        'This message has **bold**, `code`, __italics__ and '
-        'a [nice website](https://example.com)!',
-        link_preview=False
-    )
-
-    # Sending a message returns the sent message object, which you can use
-    print(message.raw_text)
-
-    # You can reply to messages directly if you have a message object
-    await message.reply('Cool!')
-
-    # Or send files, songs, documents, albums...
-    await client.send_file('me', '/home/me/Pictures/holidays.jpg')
-
-    # You can print the message history of any chat:
-    async for message in client.iter_messages('me'):
-        print(message.id, message.text)
-
-        # You can download media from messages, too!
-        # The method will return the path where the file was saved.
+async def process_chat_history(chat_id):
+    # Using the client to iterate over all messages
+    async for message in client.iter_messages(chat_id, filter=InputMessagesFilterPhotos):
+        # Check if the message has a photo
         if message.photo:
-            path = await message.download_media()
-            print('File saved to', path)  # printed after download is done
+            await ocr_and_store_photo(message)
 
+# The main script execution starts here
 with client:
-    client.loop.run_until_complete(main())
+    client.loop.run_until_complete(process_chat_history(-1001256733013))
 
+# Close the database connection
+connection.close()
