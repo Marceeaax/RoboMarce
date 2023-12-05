@@ -1,45 +1,51 @@
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import time
 
+# Add any Chrome options if needed
 
-driver = webdriver.Chrome(ChromeDriverManager().install())
-
+driver = webdriver.Chrome()
 driver.get("https://identidad.mtess.gov.py/alumno/login.php")
 
 documentoidentidad = 4669759
 contrasena = "6KKiXTMsnX8w3jstl$$y8f%VU"
 
 try:
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "username"))
-    )
-    element.send_keys(documentoidentidad)
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "password"))
-    )
-    element.send_keys(contrasena)
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "submitLogin1"))
-    )
-    element.click()
-
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "itemlink9"))
-    )
-    element.click()
-
-    element = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "itemlink16"))
-    )
-    element.click()
-
     try:
-        element = WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, "col-md-12")))
-        print(element.get_property("innerText")) 
-    except:
-        print("Si hay cursos disponibles")
+        # Login process
+        username = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "username")))
+        username.send_keys(documentoidentidad)
+        password = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
+        password.send_keys(contrasena)
+        submit_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "submitLogin1")))
+        submit_button.click()
+
+        print("iniciar sesion")
+        
+        time.sleep(5)
+        # Navigating through items
+        item_link_13 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink13")))
+        print("se detecto item 13")
+        item_link_13.click()
+        
+        print("entro a cursos")
+        # iterate from gridRow4 to gridRow21 and extract the innerText string
+        
+        for i in range(4, 22):
+            grid_row = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, f"gridRow{i}")))
+            print("logro detectar")
+            #print(grid_row.text)
+            
+    except TimeoutException:
+        print("Timeout occurred while waiting for element.")
+    except NoSuchElementException:
+        print("Element not found.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 finally:
     driver.quit()
