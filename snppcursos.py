@@ -29,17 +29,21 @@ try:
         
         time.sleep(5)
         # Navigating through items
-        item_link_13 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink13")))
-        print("se detecto item 13")
-        item_link_13.click()
+        item_link_9 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink9")))
+        print("se detecto item 9")
+        item_link_9.click()
+        
+        item_link_10 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink10")))
+        print("se detecto item 10")
+        item_link_10.click()
         
         print("entro a cursos")
         # iterate from gridRow4 to gridRow21 and extract the innerText string
         
         for i in range(4, 22):
             grid_row = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, f"gridRow{i}")))
-            print("logro detectar")
-            #print(grid_row.text)
+            #print("logro detectar")
+            print(grid_row.text)
             
     except TimeoutException:
         print("Timeout occurred while waiting for element.")
