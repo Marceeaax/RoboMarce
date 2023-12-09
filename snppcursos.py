@@ -6,6 +6,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import time
+import sqlite3
 
 # Constants
 LOGIN_URL = "https://identidad.mtess.gov.py/alumno/login.php"
@@ -50,9 +51,40 @@ CAMPOS_DE_CURSOS = [
     "fecha_inicio",
     "fecha_fin"
 ]
+
+import sqlite3
+
+def create_database():
+    conn = sqlite3.connect('courses.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS courses (
+            id INTEGER PRIMARY KEY,
+            familia TEXT,
+            unidad_operativa TEXT,
+            areas TEXT,
+            id_planificacion TEXT,
+            especialidad TEXT,
+            modalidad TEXT,
+            edad_requerida TEXT,
+            cantidad_maxima_alumnos TEXT,
+            cantidad_alumnos TEXT,
+            carga_horaria TEXT,
+            distrito TEXT,
+            ciudad TEXT,
+            barrio TEXT,
+            dias_semanas TEXT,
+            fecha_inicio TEXT,
+            fecha_fin TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
 def initialize_driver():
     # Initialize the Chrome webdriver and return it as a variable
     # Notice that, you need to download the chromedriver.exe file and put it in your PATH
+
     driver = webdriver.Chrome()
     driver.get("https://identidad.mtess.gov.py/alumno/login.php")
     return driver
@@ -63,6 +95,9 @@ def login(driver):
         username.send_keys(DOCUMENTO_IDENTIDAD)
         password = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, PASSWORD_ID)))
         password.send_keys(CONTRASENA)
+
+        time.sleep(1)
+
         submit_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, SUBMIT_LOGIN_ID)))
         submit_button.click()
         print("Login successful")
@@ -71,11 +106,42 @@ def login(driver):
     except NoSuchElementException:
         print("Login element not found.")
 
-def navigate_and_extract_courses(driver):
+def procesar_cursos(driver, categoria):
+    conn = sqlite3.connect('courses.db')
+    cursor = conn.cursor()
+
+    grid_rows = driver.find_elements(By.CSS_SELECTOR, "tr.bs-gridrow")
+    
+    for row in grid_rows:
+        course_data = {}
+        for data_field in CAMPOS_DE_CURSOS:
+            css_selector = f"td[data-field='{data_field}']"
+            try:
+                element = row.find_element(By.CSS_SELECTOR, css_selector)
+                course_data[data_field] = element.text
+            except NoSuchElementException:
+                course_data[data_field] = None
+
+        # Check if the course already exists
+        cursor.execute('SELECT * FROM courses WHERE id_planificacion = ?', (course_data['id_planificacion'],))
+        if cursor.fetchone() is None:
+            # Insert new course
+            columns = ', '.join(course_data.keys())
+            placeholders = ':' + ', :'.join(course_data.keys())
+            query = f'INSERT INTO courses ({columns}) VALUES ({placeholders})'
+            cursor.execute(query, course_data)
+    
+    conn.commit()
+    conn.close()
+
+
+def navegar_por_modalidad(driver):
     try:
         item_link_9 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink9")))
         print("se detecto item 9")
-        item_link_9.click()          
+        item_link_9.click()
+
+        time.sleep(1)          
 
         for categoria, item_link_id in CATEGORIAS.items():
             item_link = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, item_link_id)))
@@ -92,37 +158,21 @@ def navigate_and_extract_courses(driver):
                 # Create a list to store the page URLs
                 page_urls = [link.get_attribute("href") for link in page_links]
 
-                if pagination:
-                    print("se detecto paginacion")
+                if page_urls:
+                    print("Hay mas de una pagina")
+                    # imprimir cantidad de paginas
+                    print(f"Paginas encontradas: {len(page_urls)}")
+                    for page in page_urls:
+                        driver.get(page)
+                        procesar_cursos(driver, categoria)
                 else:
-                    print("no se detecto paginacion")
+                    print("Solo hay una sola pagina")
+                    procesar_cursos(driver, categoria)
 
             except NoSuchElementException:
                 # Pagination element not found
-                print("No pagination element found")
-                page_urls = []  # Set an empty list for page URLs
-
-            grid_rows = driver.find_elements(By.CSS_SELECTOR, "tr.bs-gridrow")
-            print(f"{categoria} Cursos encontrados: {len(grid_rows)}")
-            
-            for row in grid_rows:
-                for data_field in CAMPOS_DE_CURSOS:
-                    # Construct the CSS selector to find the <td> element with the data-field attribute
-                    css_selector = f"td[data-field='{data_field}']"
-                    
-                    try:
-                        # Find the element using the CSS selector within the current row
-                        element = row.find_element(By.CSS_SELECTOR, css_selector)
-                        
-                        # Extract the text content (outer_text) of the element
-                        text_content = element.text
-                        
-                        # Print the text content
-                        print(f"{data_field}: {text_content}")
-
-                    except NoSuchElementException:
-                        # Element not found, continue with the next iteration
-                        continue
+                print("Solo hay una pagina")
+                procesar_cursos(driver, categoria)
 
             print("Cursos extraidos")
             item_link_9 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink9")))
@@ -138,9 +188,10 @@ def navigate_and_extract_courses(driver):
         print(f"An unexpected error occurred: {e}")
 
 def main():
+    create_database()
     driver = initialize_driver()
     login(driver)
-    navigate_and_extract_courses(driver)
+    navegar_por_modalidad(driver)
     driver.quit()
 
 if __name__ == "__main__":
