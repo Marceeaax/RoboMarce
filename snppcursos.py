@@ -44,6 +44,7 @@ CAMPOS_DE_CURSOS = [
     "edad_requerida",
     "cantidad_maxima_alumnos",
     "cantidad_alumnos",
+    "desc_modalidad",
     "arancel",
     "carga_horaria",
     "sala",
@@ -74,6 +75,7 @@ def create_database():
             id_planificacion TEXT,
             especialidad TEXT,
             modalidad TEXT,
+            desc_modalidad TEXT,
             edad_requerida TEXT,
             cantidad_maxima_alumnos TEXT,
             cantidad_alumnos TEXT,
@@ -122,7 +124,7 @@ def login(driver):
 
         submit_button = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, SUBMIT_LOGIN_ID)))
         submit_button.click()
-        print("Login successful")
+        print("Inicio de sesion exitoso")
     except TimeoutException:
         print("Timeout occurred during login.")
     except NoSuchElementException:
@@ -187,7 +189,7 @@ def navegar_por_modalidad(driver):
     try:
         # primero hacemos click en cursos disponibles
         item_link_9 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink9")))
-        print("se detecto item 9")
+        print("Click en cursos disponibles")
         item_link_9.click()
 
         time.sleep(1)          
@@ -195,9 +197,9 @@ def navegar_por_modalidad(driver):
         # luego hacemos click en los cursos por modalidad, as of 2023, las modalidades son 13 y empiezan en a Distancia
         for categoria, item_link_id in CATEGORIAS.items():
             item_link = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, item_link_id)))
-            print(f"se detecto {categoria}")
+            print(f"Se detecto la modalidad {categoria}")
             item_link.click()
-            print(f"entro a {categoria} cursos")
+            print(f"Entrando")
             
             time.sleep(2)  # Wait for the page to load (adjust the sleep time as needed)
 
@@ -224,7 +226,7 @@ def navegar_por_modalidad(driver):
                 print("Solo hay una pagina")
                 procesar_cursos(driver, categoria)
 
-            print("Cursos extraidos")
+            print(f"Cursos extraidos de la modalidad {categoria} fueron")
             item_link_9 = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "itemlink9")))
             time.sleep(1)
             item_link_9.click()
@@ -247,13 +249,12 @@ def deactivate_old_courses():
     conn.close()
 
 def main():
-
     create_database()
     driver = initialize_driver()
     login(driver)
     navegar_por_modalidad(driver)
     driver.quit()
     deactivate_old_courses()
-
+    print("Proceso finalizado")
 if __name__ == "__main__":
     main()
